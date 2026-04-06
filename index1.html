@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart GPS Dashboard (Cloud)</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- FIREBASE -->
+<script src="https://genfence-7ce1b-default-rtdb.firebaseio.com/"></script>
+
+<style>
+body {
+ margin:0;
+ font-family:'Segoe UI',sans-serif;
+ background:#020617;
+ color:white;
+}
+
+header {
+ display:flex;
+ justify-content:space-between;
+ padding:10px;
+ background:#0f172a;
+}
+
+#map {
+ height:45vh;
+ margin:10px;
+ border-radius:12px;
+}
+
+.card {
+ background:#111827;
+ padding:12px;
+ border-radius:12px;
+ margin:10px;
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+ gap:10px;
+}
+
+.safe { color:#22c55e; }
+.danger { color:#ef4444; }
+
+/* POPUP */
+.popup {
+ position:fixed;
+ top:0;
+ left:0;
+ width:100%;
+ height:100%;
+ background:rgba(0,0,0,0.8);
+ display:none;
+ justify-content:center;
+ align-items:center;
+ z-index:9999;
+}
+
+.popup-box {
+ background:#111827;
+ padding:20px;
+ border-radius:12px;
+ text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<span>🌍 Cloud GPS Dashboard</span>
+<button onclick="location.reload()">Refresh</button>
+</header>
+
+<div id="map"></div>
+
+<div class="card">
+<div>Lat: <span id="lat">0</span></div>
+<div>Lng: <span id="lng">0</span></div>
+<div>Status: <span id="status">WAITING</span></div>
+<div>Alert: <span id="alert">NONE</span></div>
+</div>
+
+<!-- POPUP -->
+<div id="popup" class="popup">
+  <div class="popup-box">
+    <h2 id="popupText"></h2>
+    <button onclick="closePopup()">OK</button>
+  </div>
+</div>
+
+<script>
+
+// 🔥 FIREBASE CONFIG
+const firebaseConfig = {
+  databaseURL: "https://genfence-7ce1b-default-rtdb.firebaseio.com/"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// 🔊 SOUND
+let alarmSound = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+
+// POPUP
+let lastPopup = "";
+
+function showPopup(msg){
+  document.getElementById("popupText").innerText = msg;
+  document.getElementById("popup").style.display = "flex";
+  alarmSound.play().catch(()=>{});
+}
+
+function closePopup(){
+  document.getElementById("popup").style.display = "none";
+}
+
+// unlock sound
+document.body.addEventListener("click", ()=>{
+  alarmSound.play().then(()=> alarmSound.pause());
+}, {once:true});
+
+// ---------------- MAP ----------------
+let map = L.map('map').setView([10.7905,78.7047],16);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+.addTo(map);
+
+let marker = L.marker([10.7905,78.7047]).addTo(map);
+
+// ---------------- FIREBASE LISTENER ----------------
+db.ref("/").on("value", (snap) => {
+
+  let d = snap.val();
+  if(!d) return;
+
+  let la = d.gps?.lat || 0;
+  let ln = d.gps?.lng || 0;
+
+  lat.innerText = la;
+  lng.innerText = ln;
+
+  status.innerText = d.status || "WAITING";
+  alert.innerText = d.alert || "NONE";
+
+  status.className = (d.status==="INSIDE") ? "safe" : "danger";
+
+  let pos = [la, ln];
+
+  marker.setLatLng(pos);
+  map.setView(pos, map.getZoom());
+
+  // 🚨 ALERTS
+  if(d.alert==="EMERGENCY" && lastPopup!=="EMERGENCY"){
+    showPopup("🚨 EMERGENCY ALERT!");
+    lastPopup="EMERGENCY";
+  }
+
+  if(d.status==="OUTSIDE" && lastPopup!=="OUTSIDE"){
+    showPopup("⚠️ OUTSIDE SAFE ZONE!");
+    lastPopup="OUTSIDE";
+  }
+
+});
+
+</script>
+
+</body>
+</html>
