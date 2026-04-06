@@ -7,8 +7,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<!-- FIREBASE -->
-<script src="https://genfence-7ce1b-default-rtdb.firebaseio.com/"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase.js"></script>
 
 <style>
 body {
@@ -26,9 +25,15 @@ header {
 }
 
 #map {
- height:45vh;
+ height:40vh;
  margin:10px;
  border-radius:12px;
+}
+
+.grid {
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+ gap:10px;
 }
 
 .card {
@@ -36,13 +41,19 @@ header {
  padding:12px;
  border-radius:12px;
  margin:10px;
- display:grid;
- grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
- gap:10px;
 }
 
 .safe { color:#22c55e; }
 .danger { color:#ef4444; }
+
+button {
+ padding:6px 10px;
+ border:none;
+ border-radius:8px;
+ background:#2563eb;
+ color:white;
+ cursor:pointer;
+}
 
 /* POPUP */
 .popup {
@@ -70,18 +81,26 @@ header {
 <body>
 
 <header>
-<span>🌍 Cloud GPS Dashboard</span>
+<span>🌍 GPS Dashboard (Cloud)</span>
 <button onclick="location.reload()">Refresh</button>
 </header>
 
 <div id="map"></div>
 
-<div class="card">
+<div style="text-align:center;">
+<button onclick="enableNotifications()">🔔 Enable Notifications</button>
+</div>
+
+<div class="card grid">
 <div>Lat: <span id="lat">0</span></div>
 <div>Lng: <span id="lng">0</span></div>
 <div>Status: <span id="status">WAITING</span></div>
 <div>Alert: <span id="alert">NONE</span></div>
 </div>
+
+<a id="mapLink" target="_blank">
+<button style="margin:10px;">📍 Open Map</button>
+</a>
 
 <!-- POPUP -->
 <div id="popup" class="popup">
@@ -95,7 +114,7 @@ header {
 
 // 🔥 FIREBASE CONFIG
 const firebaseConfig = {
-  databaseURL: "https://genfence-7ce1b-default-rtdb.firebaseio.com/"
+  databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -104,8 +123,13 @@ const db = firebase.database();
 // 🔊 SOUND
 let alarmSound = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 
+// 🔔 NOTIFICATIONS
+function enableNotifications(){
+  Notification.requestPermission();
+}
+
 // POPUP
-let lastPopup = "";
+let lastAlert = "";
 
 function showPopup(msg){
   document.getElementById("popupText").innerText = msg;
@@ -152,15 +176,18 @@ db.ref("/").on("value", (snap) => {
   marker.setLatLng(pos);
   map.setView(pos, map.getZoom());
 
+  // MAP LINK
+  mapLink.href = `https://maps.google.com/?q=${la},${ln}`;
+
   // 🚨 ALERTS
-  if(d.alert==="EMERGENCY" && lastPopup!=="EMERGENCY"){
+  if(d.alert==="EMERGENCY" && lastAlert!=="EMERGENCY"){
     showPopup("🚨 EMERGENCY ALERT!");
-    lastPopup="EMERGENCY";
+    lastAlert="EMERGENCY";
   }
 
-  if(d.status==="OUTSIDE" && lastPopup!=="OUTSIDE"){
+  if(d.status==="OUTSIDE" && lastAlert!=="OUTSIDE"){
     showPopup("⚠️ OUTSIDE SAFE ZONE!");
-    lastPopup="OUTSIDE";
+    lastAlert="OUTSIDE";
   }
 
 });
